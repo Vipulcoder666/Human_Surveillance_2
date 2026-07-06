@@ -1,0 +1,19 @@
+# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large weight files (PyTorch)
+*.pt
+*.pth
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
