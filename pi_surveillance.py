@@ -11,7 +11,7 @@ import onnxruntime as ort
 # ============================================================
 # CONFIGURATION  ← Edit only here
 # ============================================================
-MODEL_PATH       = "yolo11n.onnx"   # Pre-trained YOLO11n model
+MODEL_PATH       = "best.onnx"      # Custom trained YOLO11n model
 # Direct RTSP Stream:
 CAMERA_URL       = "rtsp://admin:cctv%40321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=0"
 # Raspberry Pi HTTP Streamer:
