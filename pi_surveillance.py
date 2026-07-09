@@ -16,8 +16,8 @@ MODEL_PATH       = "best.onnx"      # Custom trained YOLO11n model
 CAMERA_URL       = "rtsp://admin:cctv%40321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=0"
 # Raspberry Pi HTTP Streamer:
 # CAMERA_URL     = "http://<RASPBERRY_PI_IP>:8000/stream"
-CONF_THRESH      = 0.17             
-NMS_THRESH       = 0.55             
+CONF_THRESH      = 0.23             
+NMS_THRESH       = 0.60             
 INPUT_SIZE       = 640
 USE_DOUBLE_CROP  = True             
 MAX_GONE         = 50               
@@ -142,20 +142,20 @@ class CentroidTracker:
                 is_duplicate = False
                 for oid in self.objects:
                     if self.gone[oid] == 0:  # Active object in current frame
-                        if self.compute_iou(self.bboxes[oid], bboxes[j]) > 0.65:
+                        if self.compute_iou(self.bboxes[oid], bboxes[j]) > 0.45:
                             is_duplicate = True
                             break
                 if not is_duplicate:
                     self._reg(bboxes[j], centroids[j])
 
-        # 5. Clean up duplicate active trackers (if two active IDs overlap by IoU > 0.65)
+        # 5. Clean up duplicate active trackers (if two active IDs overlap by IoU > 0.45)
         active_ids = [oid for oid in self.objects if self.gone[oid] == 0]
         to_delete = set()
         for i, oid1 in enumerate(active_ids):
             for oid2 in active_ids[i+1:]:
                 if oid1 in to_delete or oid2 in to_delete:
                     continue
-                if self.compute_iou(self.bboxes[oid1], self.bboxes[oid2]) > 0.65:
+                if self.compute_iou(self.bboxes[oid1], self.bboxes[oid2]) > 0.45:
                     # Mark the newer tracker (larger ID) for deletion
                     newer_id = max(oid1, oid2)
                     to_delete.add(newer_id)
@@ -209,12 +209,43 @@ def _detect_single(sess, input_name, frame):
     s  = scores[mask]
     oh, ow = frame.shape[:2]
 
-    x1 = np.clip(((cx - bw/2) - pl) / scale, 0, ow).astype(int)
-    y1 = np.clip(((cy - bh/2) - pt) / scale, 0, oh).astype(int)
-    x2 = np.clip(((cx + bw/2) - pl) / scale, 0, ow).astype(int)
-    y2 = np.clip(((cy + bh/2) - pt) / scale, 0, oh).astype(int)
+    x1_list = np.clip(((cx - bw/2) - pl) / scale, 0, ow).astype(int).tolist()
+    y1_list = np.clip(((cy - bh/2) - pt) / scale, 0, oh).astype(int).tolist()
+    x2_list = np.clip(((cx + bw/2) - pl) / scale, 0, ow).astype(int).tolist()
+    y2_list = np.clip(((cy + bh/2) - pt) / scale, 0, oh).astype(int).tolist()
+    s_list  = s.tolist()
 
-    return list(zip(x1.tolist(), y1.tolist(), x2.tolist(), y2.tolist())), s.tolist()
+    filtered_boxes = []
+    filtered_scores = []
+    for x1_val, y1_val, x2_val, y2_val, sc in zip(x1_list, y1_list, x2_list, y2_list, s_list):
+        h_box = y2_val - y1_val
+        w_box = x2_val - x1_val
+        cx_box = (x1_val + x2_val) // 2
+
+        # 1. Bounding Box Exclusion Zone for the empty spare chair on the right desk
+        if 630 < cx_box < 760 and y1_val > 100 and y2_val < 420:
+            continue
+
+        # 2. Aspect Ratio check: Discard extremely thin vertical shapes (like empty high-back chairs)
+        if h_box > 0:
+            aspect_ratio = w_box / h_box
+            if aspect_ratio < 0.23:
+                continue
+
+        # 3. Perspective Height constraint: foreground/middleground objects must be larger
+        min_h = 45  # Default minimum height for background people
+        if y2_val > 380:
+            min_h = 150
+        elif y2_val > 280:
+            min_h = 100
+        elif y2_val > 200:
+            min_h = 90  # Middle table height check (filters out laptops/monitors)
+            
+        if h_box >= min_h:
+            filtered_boxes.append((x1_val, y1_val, x2_val, y2_val))
+            filtered_scores.append(sc)
+
+    return filtered_boxes, filtered_scores
 
 
 def detect(sess, input_name, frame):
