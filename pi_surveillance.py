@@ -16,8 +16,8 @@ MODEL_PATH       = "best.onnx"      # Custom trained YOLO11n model
 CAMERA_URL       = "rtsp://admin:cctv%40321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=0"
 # Raspberry Pi HTTP Streamer:
 # CAMERA_URL     = "http://<RASPBERRY_PI_IP>:8000/stream"
-CONF_THRESH      = 0.20             
-NMS_THRESH       = 0.45             
+CONF_THRESH      = 0.15             
+NMS_THRESH       = 0.55             
 INPUT_SIZE       = 640
 USE_DOUBLE_CROP  = True             
 MAX_GONE         = 50               
@@ -142,20 +142,20 @@ class CentroidTracker:
                 is_duplicate = False
                 for oid in self.objects:
                     if self.gone[oid] == 0:  # Active object in current frame
-                        if self.compute_iou(self.bboxes[oid], bboxes[j]) > 0.55:
+                        if self.compute_iou(self.bboxes[oid], bboxes[j]) > 0.65:
                             is_duplicate = True
                             break
                 if not is_duplicate:
                     self._reg(bboxes[j], centroids[j])
 
-        # 5. Clean up duplicate active trackers (if two active IDs overlap by IoU > 0.55)
+        # 5. Clean up duplicate active trackers (if two active IDs overlap by IoU > 0.65)
         active_ids = [oid for oid in self.objects if self.gone[oid] == 0]
         to_delete = set()
         for i, oid1 in enumerate(active_ids):
             for oid2 in active_ids[i+1:]:
                 if oid1 in to_delete or oid2 in to_delete:
                     continue
-                if self.compute_iou(self.bboxes[oid1], self.bboxes[oid2]) > 0.55:
+                if self.compute_iou(self.bboxes[oid1], self.bboxes[oid2]) > 0.65:
                     # Mark the newer tracker (larger ID) for deletion
                     newer_id = max(oid1, oid2)
                     to_delete.add(newer_id)
