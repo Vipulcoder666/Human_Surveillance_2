@@ -12,14 +12,17 @@ import onnxruntime as ort
 # CONFIGURATION  ← Edit only here
 # ============================================================
 MODEL_PATH       = "yolo11n.onnx"   # Pre-trained YOLO11n model
-CAMERA_URL       = "rtsp://admin:cctv@321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=0"
-CONF_THRESH      = 0.20             # Lowered to 0.20 to detect hard-to-catch seated/occluded people
-NMS_THRESH       = 0.45             # Standard NMS threshold (allows adjacent/overlapping people)
+# Direct RTSP Stream:
+CAMERA_URL       = "rtsp://admin:cctv%40321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=0"
+# Raspberry Pi HTTP Streamer:
+# CAMERA_URL     = "http://<RASPBERRY_PI_IP>:8000/stream"
+CONF_THRESH      = 0.20             
+NMS_THRESH       = 0.45             
 INPUT_SIZE       = 640
-USE_DOUBLE_CROP  = True             # Enabled to catch seated/facing-away people at the desks
-MAX_GONE         = 50               # frames before an ID is deleted (increased to survive temporary freezes)
-MAX_DIST         = 250              # max centroid shift between frames in pixels (increased for robustness)
-STABLE_SECS      = 4.0              # seconds to hold a stable person count
+USE_DOUBLE_CROP  = True             
+MAX_GONE         = 50               
+MAX_DIST         = 250              
+STABLE_SECS      = 4.0              
 
 # ============================================================
 # Centroid Tracker
@@ -29,8 +32,8 @@ class CentroidTracker:
         self.next_id   = 1
         self.objects   = {}   # id -> (cx,cy)
         self.bboxes    = {}   # id -> [x1,y1,x2,y2]
-        self.gone      = {}   # id -> frames missing
-        self.last_seen = {}   # id -> wall-clock time
+        self.gone      = {}   
+        self.last_seen = {}   
 
     def compute_iou(self, box1, box2):
         x1_1, y1_1, x2_1, y2_1 = box1
@@ -303,6 +306,7 @@ def camera_thread():
                 consecutive_failures = 0
             time.sleep(0.1)   # brief pause before retry
             continue
+        
 
         consecutive_failures = 0
         ret, frame = cap.retrieve()
