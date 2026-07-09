@@ -16,7 +16,7 @@ MODEL_PATH       = "best.onnx"      # Custom trained YOLO11n model
 CAMERA_URL       = "rtsp://admin:cctv%40321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=0"
 # Raspberry Pi HTTP Streamer:
 # CAMERA_URL     = "http://<RASPBERRY_PI_IP>:8000/stream"
-CONF_THRESH      = 0.15             
+CONF_THRESH      = 0.17             
 NMS_THRESH       = 0.55             
 INPUT_SIZE       = 640
 USE_DOUBLE_CROP  = True             
