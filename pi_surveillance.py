@@ -16,8 +16,8 @@ MODEL_PATH       = "best.onnx"      # Custom trained YOLO11n model
 CAMERA_URL       = "rtsp://admin:cctv%40321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=1"
 # Raspberry Pi HTTP Streamer:
 # CAMERA_URL     = "http://<RASPBERRY_PI_IP>:8000/stream"
-CONF_THRESH      = 0.23             
-NMS_THRESH       = 0.60             
+CONF_THRESH      = 0.13             
+NMS_THRESH       = 0.40             
 INPUT_SIZE       = 640
 USE_DOUBLE_CROP  = True             
 MAX_GONE         = 50               
@@ -142,7 +142,7 @@ class CentroidTracker:
                 is_duplicate = False
                 for oid in self.objects:
                     if self.gone[oid] == 0:  # Active object in current frame
-                        if self.compute_iou(self.bboxes[oid], bboxes[j]) > 0.45:
+                        if self.compute_iou(self.bboxes[oid], bboxes[j]) > 0.40:
                             is_duplicate = True
                             break
                 if not is_duplicate:
@@ -155,7 +155,7 @@ class CentroidTracker:
             for oid2 in active_ids[i+1:]:
                 if oid1 in to_delete or oid2 in to_delete:
                     continue
-                if self.compute_iou(self.bboxes[oid1], self.bboxes[oid2]) > 0.45:
+                if self.compute_iou(self.bboxes[oid1], self.bboxes[oid2]) > 0.40:
                     # Mark the newer tracker (larger ID) for deletion
                     newer_id = max(oid1, oid2)
                     to_delete.add(newer_id)
@@ -253,12 +253,11 @@ def detect(sess, input_name, frame):
     all_boxes.extend(b1)
     all_scores.extend(s1)
 
-    # Pass 2: zoom into right 3/4 of frame (where people sit)
     if USE_DOUBLE_CROP:
+        # Pass 2: zoom into right 3/4 of frame (where most people sit)
         cx0 = ow // 4          # start at 25% from left
-        crop = frame[0:oh, cx0:ow]
-        b2, s2 = _detect_single(sess, input_name, crop)
-        # Translate crop-relative coordinates back to full-frame coordinates
+        crop2 = frame[0:oh, cx0:ow]
+        b2, s2 = _detect_single(sess, input_name, crop2)
         for (x1, y1, x2, y2), sc in zip(b2, s2):
             all_boxes.append((x1 + cx0, y1, x2 + cx0, y2))
             all_scores.append(sc)
@@ -266,7 +265,7 @@ def detect(sess, input_name, frame):
     if not all_boxes:
         return []
 
-    # Global NMS across both passes
+    # Global NMS across all passes
     boxes_f = [[float(x) for x in b] for b in all_boxes]
     idxs = cv2.dnn.NMSBoxes(boxes_f, all_scores, CONF_THRESH, NMS_THRESH)
     if not len(idxs):
