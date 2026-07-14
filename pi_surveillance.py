@@ -13,7 +13,7 @@ import onnxruntime as ort
 # ============================================================
 MODEL_PATH       = "best.onnx"      # Custom trained YOLO11n model
 # Direct RTSP Stream:
-CAMERA_URL       = "rtsp://admin:cctv%40321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=0"
+CAMERA_URL       = "rtsp://admin:cctv%40321@192.168.1.72:554/cam/realmonitor?channel=6&subtype=1"
 # Raspberry Pi HTTP Streamer:
 # CAMERA_URL     = "http://<RASPBERRY_PI_IP>:8000/stream"
 CONF_THRESH      = 0.23             
@@ -220,30 +220,19 @@ def _detect_single(sess, input_name, frame):
     for x1_val, y1_val, x2_val, y2_val, sc in zip(x1_list, y1_list, x2_list, y2_list, s_list):
         h_box = y2_val - y1_val
         w_box = x2_val - x1_val
-        cx_box = (x1_val + x2_val) // 2
 
-        # 1. Bounding Box Exclusion Zone for the empty spare chair on the right desk
-        if 630 < cx_box < 760 and y1_val > 100 and y2_val < 420:
+        # 1. Aspect Ratio check: Discard extremely thin vertical shapes (empty high-back chairs)
+        #    Real humans (even sitting) have aspect ratio >= 0.28
+        #    Empty chairs are very narrow: ratio ~0.17
+        if h_box > 0 and (w_box / h_box) < 0.22:
             continue
 
-        # 2. Aspect Ratio check: Discard extremely thin vertical shapes (like empty high-back chairs)
-        if h_box > 0:
-            aspect_ratio = w_box / h_box
-            if aspect_ratio < 0.23:
-                continue
+        # 2. Minimum height sanity check — ignore tiny noise boxes
+        if h_box < 40:
+            continue
 
-        # 3. Perspective Height constraint: foreground/middleground objects must be larger
-        min_h = 45  # Default minimum height for background people
-        if y2_val > 380:
-            min_h = 150
-        elif y2_val > 280:
-            min_h = 100
-        elif y2_val > 200:
-            min_h = 90  # Middle table height check (filters out laptops/monitors)
-            
-        if h_box >= min_h:
-            filtered_boxes.append((x1_val, y1_val, x2_val, y2_val))
-            filtered_scores.append(sc)
+        filtered_boxes.append((x1_val, y1_val, x2_val, y2_val))
+        filtered_scores.append(sc)
 
     return filtered_boxes, filtered_scores
 
