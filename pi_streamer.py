@@ -80,8 +80,7 @@ def generate_mjpeg_stream():
         # Encode frame as JPEG
         ret, buffer = cv2.imencode('.jpg', frame_to_send, [int(cv2.imwrite_jpeg_quality), 80])
         if not ret:
-            continue
-            
+            continue            
         frame_bytes = buffer.tobytes()
         
         # Yield multipart frame format
